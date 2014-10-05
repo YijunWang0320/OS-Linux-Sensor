@@ -15,8 +15,7 @@
 #include <hardware/hardware.h>
 #include <hardware/sensors.h> /* <-- This is a good place to look! */
 #include "../flo-kernel/include/linux/akm8975.h" 
-#include "
-.h"
+#include "acceleration.h"
 
 /* from sensors.c */
 #define ID_ACCELERATION   (0)
