@@ -55,7 +55,7 @@ static int poll_sensor_data(struct sensors_poll_device_t *sensors_device)
     sensors_event_t buffer[minBufferSize];
 	ssize_t count = sensors_device->poll(sensors_device, buffer, minBufferSize);
 	int i;
-
+	dev_acceleration *accelerationInfo;
 
 	for (i = 0; i < count; ++i) {
 		if (buffer[i].sensor != effective_sensor)
@@ -63,6 +63,10 @@ static int poll_sensor_data(struct sensors_poll_device_t *sensors_device)
 
 		/* At this point we should have valid data*/
         /* Scale it and pass it to kernel*/
+		accelerationInfo->x = buffer[i].acceleration.x;
+		accelerationInfo->y = buffer[i].acceleration.y;
+		accelerationInfo->z = buffer[i].acceleration.z;
+		
 		dbg("Acceleration: x= %0.2f, y= %0.2f, "
 			"z= %0.2f\n", buffer[i].acceleration.x,
 			buffer[i].acceleration.y, buffer[i].acceleration.z);
