@@ -15,8 +15,9 @@
 #include <hardware/hardware.h>
 #include <hardware/sensors.h> /* <-- This is a good place to look! */
 #include "../flo-kernel/include/linux/akm8975.h" 
-#include "
-.h"
+#include "acceleration.h"
+#include <sys/stat.h>
+#include <sys/param.h>
 
 /* from sensors.c */
 #define ID_ACCELERATION   (0)
@@ -89,7 +90,7 @@ int main(int argc, char **argv)
 
 	/* Fill in daemon implementation around here */
 	printf("turn me into a daemon!\n");
-	pid_t = pid, sid;
+	pid_t pid, sid;
 
 	pid = fork();
 	if (pid < 0) {
@@ -110,7 +111,7 @@ int main(int argc, char **argv)
 	
 	while (1) {
 		poll_sensor_data(sensors_device);
-		sleep(200);
+		usleep(200);
 	}
 
 	return EXIT_SUCCESS;
