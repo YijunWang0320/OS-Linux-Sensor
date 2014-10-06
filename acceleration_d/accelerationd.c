@@ -15,10 +15,12 @@
 #include <hardware/hardware.h>
 #include <hardware/sensors.h> /* <-- This is a good place to look! */
 #include "../flo-kernel/include/linux/akm8975.h" 
-#include "acceleration.h"
+#include <acceleration.h>
 #include <sys/stat.h>
 #include <sys/param.h>
-
+#include <sys/syscall.h>
+#include <syslog.h>
+#include <stdarg.h>
 /* from sensors.c */
 #define ID_ACCELERATION   (0)
 #define ID_MAGNETIC_FIELD (1)
@@ -31,8 +33,9 @@
 #define SENSORS_TEMPERATURE    (1<<ID_TEMPERATURE)
 
 
+#ifndef __NR_set_acceleration
 #define __NR_set_acceleration 378
-
+#endif
 
 /* set to 1 for a bit of debug output */
 #if 1
@@ -55,7 +58,7 @@ static int poll_sensor_data(struct sensors_poll_device_t *sensors_device)
     sensors_event_t buffer[minBufferSize];
 	ssize_t count = sensors_device->poll(sensors_device, buffer, minBufferSize);
 	int i;
-	dev_acceleration *accelerationInfo;
+	struct dev_acceleration *acInfo =(struct dev_acceleration*)malloc(sizeof(struct dev_acceleration));
 
 	for (i = 0; i < count; ++i) {
 		if (buffer[i].sensor != effective_sensor)
@@ -63,10 +66,12 @@ static int poll_sensor_data(struct sensors_poll_device_t *sensors_device)
 
 		/* At this point we should have valid data*/
         /* Scale it and pass it to kernel*/
-		accelerationInfo->x = buffer[i].acceleration.x;
-		accelerationInfo->y = buffer[i].acceleration.y;
-		accelerationInfo->z = buffer[i].acceleration.z;
-		
+		acInfo->x = buffer[i].acceleration.x;
+		acInfo->y = buffer[i].acceleration.y;
+		acInfo->z = buffer[i].acceleration.z;
+		syslog(LOG_NOTICE,"acInfo.x=%d\n",acInfo->x);
+		closelog();
+		syscall(378, acInfo);
 		dbg("Acceleration: x= %0.2f, y= %0.2f, "
 			"z= %0.2f\n", buffer[i].acceleration.x,
 			buffer[i].acceleration.y, buffer[i].acceleration.z);
@@ -100,6 +105,10 @@ int main(int argc, char **argv)
 	if (pid < 0) {
 		exit(EXIT_FAILURE);
 	}
+	if (pid > 0) {
+
+		exit(EXIT_SUCCESS);
+	}
 	umask(0);
 	sid = setsid();
 	if (sid < 0) {
@@ -114,6 +123,7 @@ int main(int argc, char **argv)
 	close(STDERR_FILENO);
 	
 	while (1) {
+		openlog(argv[0],LOG_NOWAIT|LOG_PID,LOG_USER);
 		poll_sensor_data(sensors_device);
 		usleep(200);
 	}
