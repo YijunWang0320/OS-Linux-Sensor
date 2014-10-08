@@ -15,9 +15,12 @@
 #include <hardware/hardware.h>
 #include <hardware/sensors.h> /* <-- This is a good place to look! */
 #include "../flo-kernel/include/linux/akm8975.h" 
-#include "
-.h"
-
+#include <acceleration.h>
+#include <sys/stat.h>
+#include <sys/param.h>
+#include <sys/syscall.h>
+#include <syslog.h>
+#include <stdarg.h>
 /* from sensors.c */
 #define ID_ACCELERATION   (0)
 #define ID_MAGNETIC_FIELD (1)
@@ -30,8 +33,9 @@
 #define SENSORS_TEMPERATURE    (1<<ID_TEMPERATURE)
 
 
+#ifndef __NR_set_acceleration
 #define __NR_set_acceleration 378
-
+#endif
 
 /* set to 1 for a bit of debug output */
 #if 1
@@ -54,7 +58,7 @@ static int poll_sensor_data(struct sensors_poll_device_t *sensors_device)
     sensors_event_t buffer[minBufferSize];
 	ssize_t count = sensors_device->poll(sensors_device, buffer, minBufferSize);
 	int i;
-
+	struct dev_acceleration *acInfo =(struct dev_acceleration*)malloc(sizeof(struct dev_acceleration));
 
 	for (i = 0; i < count; ++i) {
 		if (buffer[i].sensor != effective_sensor)
@@ -62,6 +66,12 @@ static int poll_sensor_data(struct sensors_poll_device_t *sensors_device)
 
 		/* At this point we should have valid data*/
         /* Scale it and pass it to kernel*/
+		acInfo->x = buffer[i].acceleration.x;
+		acInfo->y = buffer[i].acceleration.y;
+		acInfo->z = buffer[i].acceleration.z;
+		syslog(LOG_NOTICE,"acInfo.x=%d\n",acInfo->x);
+		closelog();
+		syscall(378, acInfo);
 		dbg("Acceleration: x= %0.2f, y= %0.2f, "
 			"z= %0.2f\n", buffer[i].acceleration.x,
 			buffer[i].acceleration.y, buffer[i].acceleration.z);
@@ -78,22 +88,15 @@ int main(int argc, char **argv)
 	struct sensors_module_t *sensors_module = NULL;
 	struct sensors_poll_device_t *sensors_device = NULL;
 
-	printf("Opening sensors...\n");
-	if (open_sensors(&sensors_module,
-			 &sensors_device) < 0) {
-		printf("open_sensors failed\n");
-		return EXIT_FAILURE;
-	}
-	enumerate_sensors(sensors_module);
-
-
-	/* Fill in daemon implementation around here */
-	printf("turn me into a daemon!\n");
-	pid_t = pid, sid;
+	pid_t pid, sid;
 
 	pid = fork();
 	if (pid < 0) {
 		exit(EXIT_FAILURE);
+	}
+	if (pid > 0) {
+
+		exit(EXIT_SUCCESS);
 	}
 	umask(0);
 	sid = setsid();
@@ -107,10 +110,24 @@ int main(int argc, char **argv)
 	close(STDIN_FILENO);
 	close(STDOUT_FILENO);
 	close(STDERR_FILENO);
+
+	printf("Opening sensors...\n");
+	if (open_sensors(&sensors_module,
+			 &sensors_device) < 0) {
+		printf("open_sensors failed\n");
+		return EXIT_FAILURE;
+	}
+	enumerate_sensors(sensors_module);
+
+
+	/* Fill in daemon implementation around here */
+	printf("turn me into a daemon!\n");
+
 	
 	while (1) {
+		openlog(argv[0],LOG_NOWAIT|LOG_PID,LOG_USER);
 		poll_sensor_data(sensors_device);
-		sleep(200);
+		usleep(200);
 	}
 
 	return EXIT_SUCCESS;
@@ -148,7 +165,11 @@ static int open_sensors(struct sensors_module_t **mSensorModule,
 	ssize_t count = (*mSensorModule)->get_sensors_list(*mSensorModule, &list);
 	size_t i;
 	for (i=0 ; i<(size_t)count ; i++)
-		(*mSensorDevice)->activate(*mSensorDevice, list[i].handle, 1);
+	{
+		(*mSensorDevice)->setDelay(*mSensorDevice, list[i].handle, 200);
+		(*mSensorDevice)->activate(*mSensorDevice, list[i].handle, 1);		
+	}
+
 
 	return 0;
 }
