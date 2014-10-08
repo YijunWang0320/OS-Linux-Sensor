@@ -10,7 +10,7 @@ int main()
 	acInfo->x=1;
 	acInfo->y=2;
 	acInfo->z=3;
-	i=syscall(378,acInfo);
+	i=syscall(380,acInfo);
 	printf("yes!,%d\n",i);
 	free(acInfo);
 	return 0;
