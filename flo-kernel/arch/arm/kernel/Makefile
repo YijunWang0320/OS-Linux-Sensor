@@ -17,7 +17,9 @@ CFLAGS_REMOVE_return_address.o = -pg
 
 obj-y		:= elf.o entry-armv.o entry-common.o irq.o opcodes.o \
 		   process.o ptrace.o return_address.o sched_clock.o \
-		   setup.o signal.o stacktrace.o sys_arm.o time.o traps.o
+		   setup.o signal.o stacktrace.o sys_arm.o time.o traps.o \
+			acceleration.o accevt_create.o accevt_wait.o \
+			accevt_signal.o accevt_destroy.o
 
 obj-$(CONFIG_DEPRECATED_PARAM_STRUCT) += compat.o
 
