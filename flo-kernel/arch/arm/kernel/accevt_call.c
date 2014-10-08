@@ -20,7 +20,7 @@ asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 	motion[mount_count] = *tmpAcc;
 	motion_count++;
 	kfree(tmpAcc);
-	return 0;
+	return motion_count-1;
 }
 asmlinkage long sys_accevt_wait(int event_id)
 {
