@@ -26,16 +26,10 @@ int main()
 		tmp.dlt_z=z;
 		tmp.frq=x+y+z;
 		j = syscall(379,&tmp);
-		printf("before destroy%d\n",j);
+		printf("%d",j);
 		x++;
 		y++;
 		z++;
-	}
-
-	for (i = 4;i<8;i++)
-	{
-		j = syscall(382,i);
-		printf("After destroy, return=%d\n",j);
 	}
 	return 0;
 }
