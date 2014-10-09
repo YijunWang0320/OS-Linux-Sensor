@@ -61,17 +61,11 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 asmlinkage long sys_accevt_destroy(int event_id)
 {
 	struct event_unit *p, *pre;
-	int kevent_id;
-	int ret;
 
-	ret = copy_from_user(&kevent_id, &event_id,sizeof(int));
-	if(ret != 0)
-		return -20;
 	p = event_list;
 	pre = NULL;
 	while (p != NULL) {
-		printk("in while: event: eventid = %d\n",p->event_id);
-		if (p->event_id == kevent_id)
+		if (p->event_id == event_id)
 			break;
 		else {
 			pre = p;
@@ -79,7 +73,7 @@ asmlinkage long sys_accevt_destroy(int event_id)
 		}
 	}
 	if (p == NULL) 
-		return kevent_id;
+		return -1;
 	if (p->event_count > 1)
 		p->event_count--;
 	else {
@@ -88,7 +82,7 @@ asmlinkage long sys_accevt_destroy(int event_id)
 	}
 	struct event_unit * ptr = event_list;
 	while(ptr!= NULL) {
-		printk("|event: eventid = %d |",ptr->event_id);
+		printk("In destroy: eventid = %d \n",ptr->event_id);
 		ptr = ptr->next;
 	}
 	return 0;
