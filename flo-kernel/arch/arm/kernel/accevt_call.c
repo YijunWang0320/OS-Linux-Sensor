@@ -70,6 +70,7 @@ asmlinkage long sys_accevt_destroy(int event_id)
 	p = event_list;
 	pre = NULL;
 	while (p != NULL) {
+		printk("in while: event: eventid = %d\n",p->event_id);
 		if (p->event_id == kevent_id)
 			break;
 		else {
@@ -78,7 +79,7 @@ asmlinkage long sys_accevt_destroy(int event_id)
 		}
 	}
 	if (p == NULL) 
-		return -1;
+		return kevent_id;
 	if (p->event_count > 1)
 		p->event_count--;
 	else {
