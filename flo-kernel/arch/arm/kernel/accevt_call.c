@@ -73,7 +73,7 @@ asmlinkage long sys_accevt_destroy(int event_id)
 		if (p->event_id == kevent_id)
 			break;
 		else {
-			pre = q;
+			pre = p;
 			p = p->next;
 		}
 	}
@@ -83,11 +83,7 @@ asmlinkage long sys_accevt_destroy(int event_id)
 		p->event_count--;
 	else {
 		pre->next = p->next;
-		int status;
-
-		status = kfree(p);
-		if (status < 0)
-			return -1;
+		kfree(p);
 	}
 	struct event_unit * ptr = event_list;
 	while(ptr!= NULL) {
