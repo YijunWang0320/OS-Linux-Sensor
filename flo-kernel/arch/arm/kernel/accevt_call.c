@@ -66,7 +66,7 @@ asmlinkage long sys_accevt_destroy(int event_id)
 
 	ret = copy_from_user(&kevent_id, &event_id,sizeof(int));
 	if(ret != 0)
-		return -1;
+		return -20;
 	p = event_list;
 	pre = NULL;
 	while (p != NULL) {
