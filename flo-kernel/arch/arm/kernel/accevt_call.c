@@ -1,4 +1,4 @@
-#include<linux/syscalls.h>
+#include<linux/syscall.h>
 #include<linux/uaccess.h>
 #include<linux/slab.h>
 #include<linux/kfifo.h>
