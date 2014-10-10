@@ -11,6 +11,7 @@ struct event_unit {
 	int event_count; 
 	struct event_unit *next;
 };
+static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,256);
 static struct event_unit *event_list;
 static int motion_count = 0;
 
@@ -56,7 +57,22 @@ asmlinkage long sys_accevt_wait(int event_id)
 }
 asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 {
-	return 0;
+	int ret;
+	struct dev_acceleration *tmpACC;
+
+	tmpACC = (dev_acceleration *)kmalloc(sizeof(struct dev_acceleration),GFP_KERNEL);
+	if (acc_kfifo == NULL)
+	{
+		INIT_KFIFO(acc_kfifo);
+	}
+	ret = copy_from_user(tmpACC,acceleration,sizeof(struct dev_acceleration));
+	if (ret != 0)
+	{
+		return -1;
+	}
+	kfifo_put(acc_kfifo,tmpACC);
+	ret = kfifo_len(kfifo);
+	return ret;
 }
 asmlinkage long sys_accevt_destroy(int event_id)
 {
