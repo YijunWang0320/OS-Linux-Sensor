@@ -6,7 +6,7 @@
 #define ACC_M struct acc_motion
 struct event_unit {
 	ACC_M mBaseline;
-	wait_queue_t mWaitQueue;
+	wait_queue_head_t mWaitQueue;
 	int event_id;
 	int event_count; 
 	struct event_unit *next;
@@ -60,5 +60,30 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 }
 asmlinkage long sys_accevt_destroy(int event_id)
 {
+	struct event_unit *p, *pre;
+
+	p = event_list;
+	pre = NULL;
+	while (p != NULL) {
+		if (p->event_id == event_id)
+			break;
+		else {
+			pre = p;
+			p = p->next;
+		}
+	}
+	if (p == NULL) 
+		return -1;
+	if (p->event_count > 1)
+		p->event_count--;
+	else {
+		pre->next = p->next;
+		kfree(p);
+	}
+	struct event_unit * ptr = event_list;
+	while(ptr!= NULL) {
+		printk("In destroy: eventid = %d \n",ptr->event_id);
+		ptr = ptr->next;
+	}
 	return 0;
 }
