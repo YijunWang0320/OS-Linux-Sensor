@@ -6,36 +6,32 @@ struct acc_motion {
 	unsigned int dlt_z;
 	unsigned int frq;
 };
-int main()
-{
+struct dev_acceleration {
 	int x;
 	int y;
 	int z;
+};
+int main()
+{
 	int i;
+	int x;
+	int y;
+	int z;
 	int j;
-	struct acc_motion tmp;
 
-	x=1;
-	y=1;
-	z=1;
-	i=0;
-	for(i = 0;i < 11; i++)
+	x = 0;
+	y = 0;
+	z = 0;
+	
+	struct dev_acceleration *tmp;
+	tmp = (struct dev_acceleration*)malloc(sizeof(struct dev_acceleration));
+	for(i=0 ; i<10 ;i++)
 	{
-		tmp.dlt_x=x;
-		tmp.dlt_y=y;
-		tmp.dlt_z=z;
-		tmp.frq=x+y+z;
-		j = syscall(379,&tmp);
-		printf("before destroy%d\n",j);
-		x++;
-		y++;
-		z++;
-	}
-
-	for (i = 4;i<8;i++)
-	{
-		j = syscall(382,i);
-		printf("After destroy, return=%d\n",j);
+		tmp->x=x;
+		tmp->y=y;
+		tmp->z=z;
+		j = syscall(381,tmp);
+		printf("the number of things in kfifo : %d",j);
 	}
 	return 0;
 }
