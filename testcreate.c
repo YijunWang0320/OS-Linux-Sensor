@@ -34,7 +34,7 @@ int main()
 
 	for (i = 4;i<8;i++)
 	{
-		j = syscall(382,i);
+		j = syscall(381,NULL);
 		printf("After destroy, return=%d\n",j);
 	}
 	return 0;
