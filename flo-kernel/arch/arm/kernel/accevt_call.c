@@ -19,7 +19,6 @@ static int __init initcode(void)
 	static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,256);
 	return 0;
 }
-
 asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 {
 	ACC_M *tmpAcc;
@@ -115,3 +114,9 @@ asmlinkage long sys_accevt_destroy(int event_id)
 	}
 	return 0;
 }
+static void do_nothing(void)
+{
+
+}
+module_init(initcode);
+module_exit(do_nothing);
