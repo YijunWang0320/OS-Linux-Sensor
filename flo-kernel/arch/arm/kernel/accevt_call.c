@@ -1,8 +1,9 @@
-#include<linux/syscall.h>
+#include<linux/syscalls.h>
 #include<linux/uaccess.h>
 #include<linux/slab.h>
 #include<linux/kfifo.h>
 #include<linux/wait.h>
+
 #define ACC_M struct acc_motion
 struct event_unit {
 	ACC_M mBaseline;
@@ -59,19 +60,26 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 {
 	int ret;
 	struct dev_acceleration *tmpACC;
+	struct dev_acceleration *retu;
+	struct dev_acceleration *retu1;
 
-	tmpACC = (dev_acceleration *)kmalloc(sizeof(struct dev_acceleration),GFP_KERNEL);
-	if (acc_kfifo == NULL)
-	{
-		INIT_KFIFO(acc_kfifo);
-	}
+	tmpACC = (struct dev_acceleration *)kmalloc(sizeof(struct dev_acceleration),GFP_KERNEL);
+	retu = (struct dev_acceleration *)kmalloc(sizeof(struct dev_acceleration),GFP_KERNEL);
+	retu1 = (struct dev_acceleration *)kmalloc(sizeof(struct dev_acceleration),GFP_KERNEL);
 	ret = copy_from_user(tmpACC,acceleration,sizeof(struct dev_acceleration));
 	if (ret != 0)
 	{
 		return -1;
 	}
-	kfifo_put(acc_kfifo,tmpACC);
-	ret = kfifo_len(kfifo);
+	kfifo_put(&acc_kfifo,tmpACC);
+	if(tmpACC->x == 5)
+	{
+		kfifo_get(&acc_kfifo,retu);
+		printk("number1 : %d\n",retu->x);
+		kfifo_get(&acc_kfifo,retu1);
+		printk("number2 : %d\n",retu1->x);
+	}
+	ret = kfifo_size(&acc_kfifo);
 	return ret;
 }
 asmlinkage long sys_accevt_destroy(int event_id)

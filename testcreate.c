@@ -31,6 +31,9 @@ int main()
 		tmp->y=y;
 		tmp->z=z;
 		j = syscall(381,tmp);
+		x++;
+		y++;
+		z++;
 		printf("the number of things in kfifo : %d",j);
 	}
 	return 0;
