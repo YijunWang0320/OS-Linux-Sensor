@@ -127,7 +127,7 @@ int main(int argc, char **argv)
 	while (1) {
 		openlog(argv[0],LOG_NOWAIT|LOG_PID,LOG_USER);
 		poll_sensor_data(sensors_device);
-		usleep(200);
+		usleep(20);
 	}
 
 	return EXIT_SUCCESS;
@@ -166,7 +166,7 @@ static int open_sensors(struct sensors_module_t **mSensorModule,
 	size_t i;
 	for (i=0 ; i<(size_t)count ; i++)
 	{
-		(*mSensorDevice)->setDelay(*mSensorDevice, list[i].handle, 200);
+		(*mSensorDevice)->setDelay(*mSensorDevice, list[i].handle, 20);
 		(*mSensorDevice)->activate(*mSensorDevice, list[i].handle, 1);		
 	}
 

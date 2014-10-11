@@ -23,5 +23,7 @@ int main()
  	int eid = syscall(379,bl1);
 	int waitret = syscall(380,eid);
 	printf("motion detected ahhhhhhaaaaaaa!\n");
+	int ret = syscall(382,eid);
+	printf("event %d destroyed, exit\n");
 	return 0;
 }
