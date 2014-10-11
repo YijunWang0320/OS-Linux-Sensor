@@ -14,7 +14,7 @@ struct event_unit {
 };
 static struct event_unit *event_list;
 static int motion_count = 0;
-static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,32);
+static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,256);
 static int count = 0;
 static int __init initcode()
 {
