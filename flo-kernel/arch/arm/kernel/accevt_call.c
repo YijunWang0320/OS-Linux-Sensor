@@ -14,11 +14,7 @@ struct event_unit {
 };
 static struct event_unit *event_list;
 static int motion_count = 0;
-static int __init initcode(void)
-{
-	static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,256);
-	return 0;
-}
+static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,256);
 asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 {
 	ACC_M *tmpAcc;
@@ -81,6 +77,8 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 		printk("number : %d\n",retu->x);
 		kfifo_get(&acc_kfifo,retu1);
 		printk("number %d\n", retu1->x);
+		kfifo_get(&acc_kfifo,retu);
+		printk("number %d\n",retu->x);
 	}
 	ret = kfifo_size(&acc_kfifo);
 	return ret;
@@ -114,9 +112,3 @@ asmlinkage long sys_accevt_destroy(int event_id)
 	}
 	return 0;
 }
-static void do_nothing(void)
-{
-
-}
-module_init(initcode);
-module_exit(do_nothing);
