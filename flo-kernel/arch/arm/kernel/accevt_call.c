@@ -64,7 +64,7 @@ asmlinkage long sys_accevt_wait(int event_id)
 	}
 	if (p == NULL)
 		return -1;
-	wait_event(p->mWaitQueue, condition == event_id);
+	wait_event_interruptible(p->mWaitQueue, condition == event_id);
 	return 0;
 }
 asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
