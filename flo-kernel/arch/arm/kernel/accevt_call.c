@@ -14,18 +14,15 @@ struct event_unit {
 };
 static struct event_unit *event_list;
 static int motion_count = 0;
-static DECLARE_KFIFO_PTR(acc_kfifo,struct dev_acceleration);
+static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,32);
 static int __init initcode()
 {
-	int ret;
-	ret = kfifo_alloc(acc_kfifo,128,GFP_KERNEL);
-	if(ret != 0 )
-		return -1;
+	INIT_KFIFO(acc_kfifo);
 	return 0;
 }
 static void exit(void)
 {
-	kfree(acc_kfifo);	
+	return;	
 }
 asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 {
@@ -72,24 +69,16 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 	int ret;
 	struct dev_acceleration *tmpACC;
 	struct dev_acceleration *retu;
-	struct dev_acceleration *retu1;
 
 	tmpACC = (struct dev_acceleration *)kmalloc(sizeof(struct dev_acceleration),GFP_KERNEL);
 	retu = (struct dev_acceleration *)kmalloc(sizeof(struct dev_acceleration),GFP_KERNEL);
-	retu1 = (struct dev_acceleration *)kmalloc(sizeof(struct dev_acceleration),GFP_KERNEL);
-	ret = copy_from_user(tmpACC,acceleration,sizeof(struct dev_acceleration));
 	if (ret != 0)
 	{
 		return -1;
 	}
 	kfifo_put(&acc_kfifo,tmpACC);
-	if(tmpACC->x == 5)
-	{
-		kfifo_get(acc_kfifo,retu);
-		printk("number : %d\n",retu->x);
-		kfifo_get(acc_kfifo,retu1);
-		printk("number %d\n", retu1->x);
-	}
+	kfifo_get(&acc_kfifo,retu);
+	ret = copy_to_user(acceleration,retu);
 	ret = kfifo_size(&acc_kfifo);
 	return ret;
 }
@@ -122,3 +111,5 @@ asmlinkage long sys_accevt_destroy(int event_id)
 	}
 	return 0;
 }
+module_init(initcode);
+module_exit(exitcode);
