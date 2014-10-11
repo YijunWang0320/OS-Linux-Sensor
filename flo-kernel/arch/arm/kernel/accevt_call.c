@@ -3,17 +3,29 @@
 #include<linux/slab.h>
 #include<linux/kfifo.h>
 #include<linux/wait.h>
+
 #define ACC_M struct acc_motion
+#define DEV_A struct dev_acceleration
 struct event_unit {
 	ACC_M mBaseline;
-	wait_queue_head_t mWaitQueue;
+	wait_queue_head_t *mWaitQueue;
 	int event_id;
 	int event_count; 
 	struct event_unit *next;
 };
 static struct event_unit *event_list;
 static int motion_count = 0;
-
+static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,256);
+static int condition = 0;
+static int __init initcode()
+{
+	INIT_KFIFO(acc_kfifo);
+	return 0;
+}
+static void __exit exitcode(void)
+{
+	return;	
+}
 asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 {
 	ACC_M *tmpAcc;
@@ -32,6 +44,7 @@ asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 	new_event->event_count = 1;
 	new_event->mBaseline = *tmpAcc;
 	new_event->next = NULL;
+	init_waitqueue_head(new_event->mWaitQueue);
 	
 	if (event_list==NULL) {
 		event_list=new_event;
@@ -52,11 +65,60 @@ asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 }
 asmlinkage long sys_accevt_wait(int event_id)
 {
+	struct event_unit *p;
+
+	p = event_list;
+	while (p != NULL) {
+		if (p->event_id == event_id)
+			break;
+		else
+			p = p->next;
+	}
+	if (p == NULL)
+		return -1;
+	wait_event_interruptible(*p->mWaitQueue, condition == event_id);
 	return 0;
 }
 asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 {
-	return 0;
+	int ret;
+	int i = 0;
+	struct dev_acceleration *tmpACC, *latACC;
+	int formerX, formerY, formerZ, laterX, laterY, laterZ, frq;
+	struct event_unit *p;
+
+	p = event_list;
+	tmpACC = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
+	latACC = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
+	ret = copy_from_user(tmpACC, acceleration, sizeof(DEV_A));
+	if (ret != 0)
+	{
+		return -1;
+	}
+	kfifo_put(&acc_kfifo,tmpACC);
+	ret = kfifo_len(&acc_kfifo);
+	if(ret == WINDOW)
+		while(p != NULL) {
+			frq = 0;
+			formerX = 0;
+			formerY = 0;
+			formerZ = 0;
+			for(i = 0 ;i<WINDOW ;i++) {
+				kfifo_get(&acc_kfifo,latACC);
+				laterX = latACC->x;
+				laterY = latACC->y;
+				laterZ = latACC->z;
+				if(laterX - formerX > p->mBaseline.dlt_x && laterY-formerY > p->mBaseline.dlt_y && laterZ - formerZ > p->mBaseline.dlt_z) {
+					frq++;
+				}
+			}
+			if (frq >= p->mBaseline.frq) {
+				condition = p->event_id;
+				wake_up_interruptible_all(p->mWaitQueue);
+			}
+			p=p->next;
+		}
+	return ret;
 }
 asmlinkage long sys_accevt_destroy(int event_id)
 {
@@ -87,3 +149,5 @@ asmlinkage long sys_accevt_destroy(int event_id)
 	}
 	return 0;
 }
+module_init(initcode);
+module_exit(exitcode);

@@ -71,7 +71,7 @@ static int poll_sensor_data(struct sensors_poll_device_t *sensors_device)
 		acInfo->z = buffer[i].acceleration.z;
 		syslog(LOG_NOTICE,"acInfo.x=%d\n",acInfo->x);
 		closelog();
-		syscall(378, acInfo);
+		syscall(381, acInfo);
 		dbg("Acceleration: x= %0.2f, y= %0.2f, "
 			"z= %0.2f\n", buffer[i].acceleration.x,
 			buffer[i].acceleration.y, buffer[i].acceleration.z);
