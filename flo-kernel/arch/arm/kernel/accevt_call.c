@@ -8,7 +8,7 @@
 #define DEV_A struct dev_acceleration
 struct event_unit {
 	ACC_M mBaseline;
-	wait_queue_head_t *mWaitQueue;
+	wait_queue_head_t mWaitQueue;
 	int event_id;
 	int event_count; 
 	struct event_unit *next;
@@ -44,7 +44,7 @@ asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 	new_event->event_count = 1;
 	new_event->mBaseline = *tmpAcc;
 	new_event->next = NULL;
-	init_waitqueue_head(new_event->mWaitQueue);
+	init_waitqueue_head(&new_event->mWaitQueue);
 	
 	if (event_list==NULL) {
 		event_list=new_event;
@@ -76,7 +76,8 @@ asmlinkage long sys_accevt_wait(int event_id)
 	}
 	if (p == NULL)
 		return -1;
-	wait_event_interruptible(*p->mWaitQueue, condition == event_id);
+	printk("wait_event_interruptible in wait(line 79)\n");
+	wait_event_interruptible(p->mWaitQueue, condition == event_id);
 	return 0;
 }
 asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
@@ -97,8 +98,11 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 	}
 	kfifo_put(&acc_kfifo,tmpACC);
 	ret = kfifo_len(&acc_kfifo);
-	if(ret == WINDOW)
+	printk("ret=kfifo_len(&acc_kfifo), (line 99) ret=%d\n",ret);//test
+	if(ret == WINDOW) {
+		printk("line 101, if(ret==window) success\n");
 		while(p != NULL) {
+			printk("line 102: while(p!=NULL)\n");
 			frq = 0;
 			formerX = 0;
 			formerY = 0;
@@ -112,12 +116,14 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 					frq++;
 				}
 			}
-			if (frq >= p->mBaseline.frq) {
+			if (1==1 || frq >= p->mBaseline.frq) {//test
 				condition = p->event_id;
-				wake_up_interruptible_all(p->mWaitQueue);
+				printk("here we come to wake_up_interruptible!\n(line 117)"); //test
+				wake_up_interruptible_all(&p->mWaitQueue);
 			}
 			p=p->next;
 		}
+	}
 	return ret;
 }
 asmlinkage long sys_accevt_destroy(int event_id)
