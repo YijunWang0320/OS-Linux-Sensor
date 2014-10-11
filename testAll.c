@@ -1,5 +1,6 @@
-#include<sys/syscall.h>
-#include<stdio.h>
+#include <sys/syscall.h>
+#include <stdio.h>
+#include <stdlib.h>
 struct acc_motion {
 	unsigned int dlt_x;
 	unsigned int dlt_y;
