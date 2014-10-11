@@ -31,10 +31,11 @@ int main()
 		tmp->y=y;
 		tmp->z=z;
 		j = syscall(381,tmp);
+		printf("the thing: %d\n",tmp->x);
 		x++;
 		y++;
 		z++;
-		printf("the number of things in kfifo : %d",j);
+		printf("the number of things in kfifo : %d\n",j);
 	}
 	return 0;
 }

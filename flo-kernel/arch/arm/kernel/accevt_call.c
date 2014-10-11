@@ -15,12 +15,13 @@ struct event_unit {
 static struct event_unit *event_list;
 static int motion_count = 0;
 static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,32);
+static int count = 0;
 static int __init initcode()
 {
 	INIT_KFIFO(acc_kfifo);
 	return 0;
 }
-static void exit(void)
+static void __exit exitcode(void)
 {
 	return;	
 }
@@ -67,6 +68,7 @@ asmlinkage long sys_accevt_wait(int event_id)
 asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 {
 	int ret;
+	int i = 0;
 	struct dev_acceleration *tmpACC;
 	struct dev_acceleration *retu;
 
@@ -77,9 +79,17 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 		return -1;
 	}
 	kfifo_put(&acc_kfifo,tmpACC);
-	kfifo_get(&acc_kfifo,retu);
-	ret = copy_to_user(acceleration,retu);
-	ret = kfifo_size(&acc_kfifo);
+	count++;
+	if(count == 8)
+	{
+		for(i=0;i<7;i++)
+		{
+			kfifo_get(&acc_kfifo,retu);
+			printk("%d: %d",i,retu->x);
+			copy_to_user(acceleration,retu,sizeof(struct dev_acceleration));	
+		}
+	}
+	ret = kfifo_len(&acc_kfifo);
 	return ret;
 }
 asmlinkage long sys_accevt_destroy(int event_id)
