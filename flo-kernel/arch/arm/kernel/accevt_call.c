@@ -5,6 +5,7 @@
 #include<linux/wait.h>
 
 #define ACC_M struct acc_motion
+#define DEV_A struct dev_acceleration
 struct event_unit {
 	ACC_M mBaseline;
 	wait_queue_head_t mWaitQueue;
@@ -81,15 +82,39 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 {
 	int ret;
 	int i = 0;
-	struct dev_acceleration *tmpACC;
+	struct dev_acceleration *tmpACC, *latACC;
+	int formerX, formerY, formerZ, laterX, laterY, laterZ, frq;
+	struct event_unit *p;
 
-	tmpACC = (struct dev_acceleration *)kmalloc(sizeof(struct dev_acceleration),GFP_KERNEL);
+	p = event_list;
+	tmpACC = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
+	latACC = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
+	ret = copy_from_user(tmpACC, acceleration, sizeof(DEV_A));
 	if (ret != 0)
 	{
 		return -1;
 	}
 	kfifo_put(&acc_kfifo,tmpACC);
 	ret = kfifo_len(&acc_kfifo);
+	if(ret == WINDOW)
+		while(!p = NULL) {
+			frq = 0;
+			formerX = 0;
+			formerY = 0;
+			formerZ = 0;
+			for(i = 0 ;i<WINDOW ;i++) {
+				kfifo_get(&acc_kfifo,latACC);
+				laterX = latACC->x;
+				laterY = latACC->y;
+				laterZ = latACC->z;
+				if(laterX - formerX > p->mBaseline.dlt_x && laterY-formerY > p->mBaseline.dlt_y && laterZ - formerZ > p->mBaseline.dlt_z) {
+					frq++;
+				}
+			}
+			if (frq >= p->mBaseline.frq) {
+				wake_up_interruptible(&p->mWaitQueue);
+			}
+		}
 	return ret;
 }
 asmlinkage long sys_accevt_destroy(int event_id)
