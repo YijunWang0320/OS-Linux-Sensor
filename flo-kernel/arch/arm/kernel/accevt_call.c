@@ -116,6 +116,7 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 				condition = p->event_id;
 				wake_up_interruptible_all(p->mWaitQueue);
 			}
+			p=p->next;
 		}
 	return ret;
 }
