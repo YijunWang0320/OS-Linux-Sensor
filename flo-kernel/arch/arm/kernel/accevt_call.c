@@ -15,6 +15,7 @@ struct event_unit {
 static struct event_unit *event_list;
 static int motion_count = 0;
 static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,256);
+static int condition = 0;
 static int __init initcode()
 {
 	INIT_KFIFO(acc_kfifo);
@@ -62,6 +63,18 @@ asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 }
 asmlinkage long sys_accevt_wait(int event_id)
 {
+	struct event_unit *p;
+
+	p = event_list;
+	while (p != NULL) {
+		if (p->event_id == event_id)
+			break;
+		else
+			p = p->next;
+	}
+	if (p == NULL)
+		return -1;
+	wait_event_interruptible(p->mWaitQueue, condition == event_id);
 	return 0;
 }
 asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)

@@ -35,7 +35,6 @@ int main()
 		x++;
 		y++;
 		z++;
-		printf("the number of things in kfifo : %d\n",j);
 	}
 	return 0;
 }
