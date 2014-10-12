@@ -13,7 +13,7 @@ struct event_unit {
 	int event_count; 
 	struct event_unit *next;
 };
-static DEV_A head, total;
+static DEV_A head, total, last;
 static int totalFrq = 0;
 static struct event_unit *event_list;
 static int motion_count = 0;
@@ -27,6 +27,9 @@ static int __init initcode()
 	total.x = 0;
 	total.y = 0;
 	total.z = 0;
+	last.x = 0;
+	last.y = 0;
+	last.z = 0;
 	INIT_KFIFO(acc_kfifo);
 	return 0;
 }
@@ -100,23 +103,31 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 {
 	int ret;
 	struct dev_acceleration *tmpACC;
+	struct dev_acceleration  *tmpLast,*peek_first;
 	struct event_unit *p;
 	ACC_M *tmpMotion;
 
 	p = event_list;
 	tmpACC = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
+	peek_first = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
+	tmpLast = (DEV_A *)kmalloc(sizeof(DEV_a),GFP_KERNEL);
 	tmpMotion = (ACC_M *)kmalloc(sizeof(ACC_M),GFP_KERNEL);
+	//before this is just malloc, we need to free this
+	memcpy(tmpLast, &last, sizeof(DEV_A));
+	//tmplast is the one that before this, static last make it possible
 	ret = copy_from_user(tmpACC, acceleration, sizeof(DEV_A));
+	memcpy(&last, tmpACC, sizeof(DEV_A));
+
 	if (ret != 0)
 	{
 		return -1;
 	}
 	kfifo_put(&acc_kfifo,tmpACC);
 	ret = kfifo_len(&acc_kfifo);
-	if(abso(tmpACC->x)+abso(tmpACC->y)+abso(tmpACC->z) >= NOISE) {
-		total.x += abso(tmpACC->x);
-		total.y += abso(tmpACC->y);
-		total.z += abso(tmpACC->z);
+	if(abso(tmpACC->x - tmpLast->x)+abso(tmpACC->y - tmpLast->x)+abso(tmpACC->z - tmpLast->x) >= NOISE) {
+		total.x += abso(tmpACC->x - tmpLast->x);
+		total.y += abso(tmpACC->y - tmpLast->y);
+		total.z += abso(tmpACC->z - tmpLast->z);
 		totalFrq++;
 	}
 	if (ret == WINDOW)
@@ -126,11 +137,12 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 		tmpMotion->dlt_z = total.z;
 		tmpMotion->frq = totalFrq;
 		kfifo_get(&acc_kfifo,&head);
-		if (abso(head.x)+abso(head.y)+abso(head.z) >= NOISE)
+		kfifo_peek(&acc_kfifo,peek_first);_
+		if (abso(peek_first->x - head.x)+abso(peek_first->y - head.y)+abso(peek_first->z - head.z) >= NOISE)
 		{
-			total.x = total.x - abso(head.x);
-			total.y = total.y - abso(head.y);
-			total.z = total.z - abso(head.z);
+			total.x = total.x - abso(peek_first->x - head.x);
+			total.y = total.y - abso(peek_first->y - head.y);
+			total.z = total.z - abso(peek_first->z - head.z);
 			totalFrq --;
 		}
 	}
@@ -142,6 +154,10 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 		}
 		p=p->next;
 	}
+	kfree(tmpACC);
+	kfree(tmpLast);
+	kfree(tmpMotion);
+	kfree(peek_first);
 	return ret;
 }
 asmlinkage long sys_accevt_destroy(int event_id)
