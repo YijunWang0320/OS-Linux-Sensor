@@ -103,20 +103,17 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 {
 	int ret;
 	struct dev_acceleration *tmpACC;
-	struct dev_acceleration  *tmpLast,*peek_first;
+	struct dev_acceleration  *peek_first;
 	struct event_unit *p;
 	ACC_M *tmpMotion;
 
 	p = event_list;
 	tmpACC = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
 	peek_first = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
-	tmpLast = (DEV_A *)kmalloc(sizeof(DEV_a),GFP_KERNEL);
-	tmpMotion = (ACC_M *)kmalloc(sizeof(ACC_M),GFP_KERNEL);
+	//tmpMotion = (ACC_M *)kmalloc(sizeof(ACC_M),GFP_KERNEL);
 	//before this is just malloc, we need to free this
-	memcpy(tmpLast, &last, sizeof(DEV_A));
 	//tmplast is the one that before this, static last make it possible
 	ret = copy_from_user(tmpACC, acceleration, sizeof(DEV_A));
-	memcpy(&last, tmpACC, sizeof(DEV_A));
 
 	if (ret != 0)
 	{
@@ -124,39 +121,38 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 	}
 	kfifo_put(&acc_kfifo,tmpACC);
 	ret = kfifo_len(&acc_kfifo);
-	if(abso(tmpACC->x - tmpLast->x)+abso(tmpACC->y - tmpLast->x)+abso(tmpACC->z - tmpLast->x) >= NOISE) {
-		total.x += abso(tmpACC->x - tmpLast->x);
-		total.y += abso(tmpACC->y - tmpLast->y);
-		total.z += abso(tmpACC->z - tmpLast->z);
+	if(abso(tmpACC->x - last->x)+abso(tmpACC->y - last->y)+abso(tmpACC->z - last->z) >= NOISE) {
+		total.x += abso(tmpACC->x - last->x);
+		total.y += abso(tmpACC->y - last->y);
+		total.z += abso(tmpACC->z - last->z);
 		totalFrq++;
 	}
 	if (ret == WINDOW)
 	{
-		tmpMotion->dlt_x = total.x;
-		tmpMotion->dlt_y = total.y;
-		tmpMotion->dlt_z = total.z;
-		tmpMotion->frq = totalFrq;
+		while(p != NULL) {
+			if (total.x > p->mBaseline.dlt_x && total.y > p->mBaseline.dlt_y && total.z > p->mBaseline.dlt_z && totalFrq > p->mBaseline.frq) {
+				condition = p->event_id;
+				printk("here we come to wake_up_interruptible!\n(line 117)"); //test
+				wake_up_interruptible_all(&p->mWaitQueue);
+				}
+			p = p->next;
+		}
+		//tmpMotion->dlt_x = total.x;
+		//tmpMotion->dlt_y = total.y;
+		//tmpMotion->dlt_z = total.z;
+		//tmpMotion->frq = totalFrq;
 		kfifo_get(&acc_kfifo,&head);
 		kfifo_peek(&acc_kfifo,peek_first);_
-		if (abso(peek_first->x - head.x)+abso(peek_first->y - head.y)+abso(peek_first->z - head.z) >= NOISE)
-		{
+		if (abso(peek_first->x - head.x) + abso(peek_first->y - head.y) + abso(peek_first->z - head.z) >= NOISE) {
 			total.x = total.x - abso(peek_first->x - head.x);
 			total.y = total.y - abso(peek_first->y - head.y);
 			total.z = total.z - abso(peek_first->z - head.z);
 			totalFrq --;
 		}
 	}
-	while(p != NULL) {
-		if (tmpMotion->dlt_x > p->mBaseline.dlt_x && tmpMotion->dlt_y > p->mBaseline.dlt_y && tmpMotion->dlt_z > p->mBaseline.dlt_z && tmpMotion->frq > p->mBaseline.frq) {
-			condition = p->event_id;
-			printk("here we come to wake_up_interruptible!\n(line 117)"); //test
-			wake_up_interruptible_all(&p->mWaitQueue);
-		}
-		p=p->next;
-	}
+	memcpy(&last, tmpACC, sizeof(DEV_A));
 	kfree(tmpACC);
-	kfree(tmpLast);
-	kfree(tmpMotion);
+	//kfree(tmpMotion);
 	kfree(peek_first);
 	return ret;
 }
