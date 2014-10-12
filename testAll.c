@@ -16,14 +16,19 @@ struct dev_acceleration {
 int main()
 {
 	struct acc_motion *bl1 = (struct acc_motion*)malloc(sizeof(struct acc_motion));
-	bl1->dlt_x = 3;
-	bl1->dlt_y = 1;
-	bl1->dlt_z = 1;
-	bl1->frq = 2;
+	bl1->dlt_x = 5;
+	bl1->dlt_y = 5;
+	bl1->dlt_z = 5;
+	bl1->frq = 5;
  	int eid = syscall(379,bl1);
-	int waitret = syscall(380,eid);
-	printf("motion detected ahhhhhhaaaaaaa!\n");
-	int ret = syscall(382,eid);
+	printf("create eid=%d\n",eid);
+	long count = 0;
+	while(1){
+		int waitret = syscall(380,eid);
+		printf("wait fail. wait return=%d\n",waitret);
+		printf("motion detected %ld!\n",count);
+		count++;
+	}
 	//printf("event %d destroyed, exit\n");
 	return 0;
 }
