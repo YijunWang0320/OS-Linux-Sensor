@@ -13,18 +13,33 @@ struct event_unit {
 	int event_count; 
 	struct event_unit *next;
 };
+static DEV_A head, total;
+static int totalFrq = 0;
 static struct event_unit *event_list;
 static int motion_count = 0;
 static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,256);
 static int condition = 0;
 static int __init initcode()
 {
+	head.dlt_x = 0;
+	head.dlt_y = 0;
+	head.dlt_z = 0;
+	total.dlt_x = 0;
+	total.dlt_y = 0;
+	total.dlt_z = 0;
 	INIT_KFIFO(acc_kfifo);
 	return 0;
 }
 static void __exit exitcode(void)
 {
 	return;	
+}
+int abs(int x)
+{
+	if(x > 0)
+		return x;
+	else
+		return -x;
 }
 asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 {
@@ -83,14 +98,13 @@ asmlinkage long sys_accevt_wait(int event_id)
 asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 {
 	int ret;
-	int i = 0;
-	struct dev_acceleration *tmpACC, *latACC;
-	int formerX, formerY, formerZ, laterX, laterY, laterZ, frq;
+	struct dev_acceleration *tmpACC;
 	struct event_unit *p;
+	ACC_M *tmpMotion;
 
 	p = event_list;
 	tmpACC = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
-	latACC = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
+	tmpMotion = (ACC_M *)kmalloc(sizeof(ACC_M),GFP_KERNEL);
 	ret = copy_from_user(tmpACC, acceleration, sizeof(DEV_A));
 	if (ret != 0)
 	{
@@ -98,31 +112,34 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 	}
 	kfifo_put(&acc_kfifo,tmpACC);
 	ret = kfifo_len(&acc_kfifo);
-	printk("ret=kfifo_len(&acc_kfifo), (line 99) ret=%d\n",ret);//test
-	if(ret == WINDOW) {
-		printk("line 101, if(ret==window) success\n");
-		while(p != NULL) {
-			printk("line 102: while(p!=NULL)\n");
-			frq = 0;
-			formerX = 0;
-			formerY = 0;
-			formerZ = 0;
-			for(i = 0 ;i<WINDOW ;i++) {
-				kfifo_get(&acc_kfifo,latACC);
-				laterX = latACC->x;
-				laterY = latACC->y;
-				laterZ = latACC->z;
-				if(laterX - formerX > p->mBaseline.dlt_x && laterY-formerY > p->mBaseline.dlt_y && laterZ - formerZ > p->mBaseline.dlt_z) {
-					frq++;
-				}
-			}
-			if (1==1 || frq >= p->mBaseline.frq) {//test
-				condition = p->event_id;
-				printk("here we come to wake_up_interruptible!\n(line 117)"); //test
-				wake_up_interruptible_all(&p->mWaitQueue);
-			}
-			p=p->next;
+	if(abs(tmpACC->x)+abs(tmpACC->y)+abs(tmpACC->z) >= NOISE) {
+		total.x += abs(tmpACC->x);
+		total.y += abs(tmpACC->y);
+		total.z += abs(tmpACC->z);
+		totalFrq++;
+	}
+	if (ret == WINDOW)
+	{
+		tmpMotion->dlt_x = total.x;
+		tmpMotion->dlt_y = total.y;
+		tmpMotion->dlt_z = total.z;
+		tmpMotion->frq = totalFrq;
+		kfifo_get(&acc_kfifo,&head);
+		if (abs(head.x)+abs(head.y)+abs(head).z >= NOIZE)
+		{
+			total.x = total.x - abs(head.x);
+			total.y = total.y - abs(head.y);
+			total.z = total.z - abs(head.z);
+			totalFrq --;
 		}
+	}
+	while(p != NULL) {
+		if (tmpMotion->dlt_x > p->mBaseline.dlt_x && tmpMotion->dlt_y > p->mBaseline.dlt_y && tmpMotion->dlt_z = p->mBaseline.dlt_z && tmpMotion->frq > p->mBaseline.frq) {
+			condition = p->event_id;
+			printk("here we come to wake_up_interruptible!\n(line 117)"); //test
+			wake_up_interruptible_all(&p->mWaitQueue);
+		}
+		p=p->next;
 	}
 	return ret;
 }
