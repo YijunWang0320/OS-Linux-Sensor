@@ -3,6 +3,7 @@
 #include<linux/slab.h>
 #include<linux/kfifo.h>
 #include<linux/wait.h>
+#include<linux/spinlock.h>
 
 #define ACC_M struct acc_motion
 #define DEV_A struct dev_acceleration
@@ -13,12 +14,14 @@ struct event_unit {
 	int event_count; 
 	struct event_unit *next;
 };
-static DEV_A head, total, last;
-static int totalFrq = 0;
-static struct event_unit *event_list;
-static int motion_count = 0;
+static DEV_A head, total, last;//only signal
+static int totalFrq = 0;//only signal
+static struct event_unit *event_list;// lock 1
+static int motion_count = 0;//lock 2
 static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,256);
 static int condition = 0;
+static spinlock_t motion_count_lock;
+static spinlock_t event_list_lock;
 static int __init initcode()
 {
 	head.x = 0;
@@ -31,6 +34,8 @@ static int __init initcode()
 	last.y = 0;
 	last.z = 0;
 	INIT_KFIFO(acc_kfifo);
+	spin_lock_init(&motion_count_lock);
+	spin_lock_init(&event_list_lock);
 	return 0;
 }
 static void __exit exitcode(void)
@@ -48,6 +53,7 @@ asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 {
 	ACC_M *tmpAcc;
 	int ret = 0;
+	int reteid;
 
 	if(acceleration == NULL)
 		return -1;
@@ -55,31 +61,27 @@ asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 	ret = copy_from_user(tmpAcc, acceleration, sizeof(ACC_M));
 	if (ret != 0)
 		return -1;
-	motion_count++;
 	struct event_unit *new_event;
 	new_event = (struct event_unit *)kmalloc(sizeof(struct event_unit),GFP_KERNEL);
-	new_event->event_id = motion_count;
 	new_event->event_count = 0;
 	new_event->mBaseline = *tmpAcc;
 	new_event->next = NULL;
+	spin_lock(&motion_count_lock);
+	motion_count++;
+	reteid = motion_count;
+	new_event->event_id = motion_count;
+	spin_unlock(&motion_count_lock);
 	init_waitqueue_head(&new_event->mWaitQueue);
-	
+	spin_lock(&event_list_lock);
 	if (event_list==NULL) {
 		event_list=new_event;
 	} else {
 		new_event->next = event_list;
 		event_list = new_event;	
 	}
-	if (motion_count==10) {
-		struct event_unit * p = event_list;
-		while(p!= NULL) {
-			printk("event: eventid=%d",p->event_id);
-			p = p->next;
-		}
-	}
-	
+	spin_unlock(&event_list_lock);
 	kfree(tmpAcc);
-	return motion_count;
+	return reteid;
 }
 asmlinkage long sys_accevt_wait(int event_id)
 {
@@ -106,8 +108,9 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 	struct dev_acceleration  *peek_first;
 	struct event_unit *p;
 	ACC_M *tmpMotion;
-
+	spin_lock(&event_list_lock);
 	p = event_list;
+	spin_unlock(&event_list_lock);
 	tmpACC = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
 	peek_first = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
 	//tmpMotion = (ACC_M *)kmalloc(sizeof(ACC_M),GFP_KERNEL);
