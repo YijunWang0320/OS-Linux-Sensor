@@ -21,12 +21,12 @@ static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,256);
 static int condition = 0;
 static int __init initcode()
 {
-	head.dlt_x = 0;
-	head.dlt_y = 0;
-	head.dlt_z = 0;
-	total.dlt_x = 0;
-	total.dlt_y = 0;
-	total.dlt_z = 0;
+	head.x = 0;
+	head.y = 0;
+	head.z = 0;
+	total.x = 0;
+	total.y = 0;
+	total.z = 0;
 	INIT_KFIFO(acc_kfifo);
 	return 0;
 }
@@ -34,7 +34,7 @@ static void __exit exitcode(void)
 {
 	return;	
 }
-int abs(int x)
+int abso(int x)
 {
 	if(x > 0)
 		return x;
@@ -113,10 +113,10 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 	}
 	kfifo_put(&acc_kfifo,tmpACC);
 	ret = kfifo_len(&acc_kfifo);
-	if(abs(tmpACC->x)+abs(tmpACC->y)+abs(tmpACC->z) >= NOISE) {
-		total.x += abs(tmpACC->x);
-		total.y += abs(tmpACC->y);
-		total.z += abs(tmpACC->z);
+	if(abso(tmpACC->x)+abso(tmpACC->y)+abso(tmpACC->z) >= NOISE) {
+		total.x += abso(tmpACC->x);
+		total.y += abso(tmpACC->y);
+		total.z += abso(tmpACC->z);
 		totalFrq++;
 	}
 	if (ret == WINDOW)
@@ -126,16 +126,16 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 		tmpMotion->dlt_z = total.z;
 		tmpMotion->frq = totalFrq;
 		kfifo_get(&acc_kfifo,&head);
-		if (abs(head.x)+abs(head.y)+abs(head).z >= NOIZE)
+		if (abso(head.x)+abso(head.y)+abso(head.z) >= NOISE)
 		{
-			total.x = total.x - abs(head.x);
-			total.y = total.y - abs(head.y);
-			total.z = total.z - abs(head.z);
+			total.x = total.x - abso(head.x);
+			total.y = total.y - abso(head.y);
+			total.z = total.z - abso(head.z);
 			totalFrq --;
 		}
 	}
 	while(p != NULL) {
-		if (tmpMotion->dlt_x > p->mBaseline.dlt_x && tmpMotion->dlt_y > p->mBaseline.dlt_y && tmpMotion->dlt_z = p->mBaseline.dlt_z && tmpMotion->frq > p->mBaseline.frq) {
+		if (tmpMotion->dlt_x > p->mBaseline.dlt_x && tmpMotion->dlt_y > p->mBaseline.dlt_y && tmpMotion->dlt_z > p->mBaseline.dlt_z && tmpMotion->frq > p->mBaseline.frq) {
 			condition = p->event_id;
 			printk("here we come to wake_up_interruptible!\n(line 117)"); //test
 			wake_up_interruptible_all(&p->mWaitQueue);
