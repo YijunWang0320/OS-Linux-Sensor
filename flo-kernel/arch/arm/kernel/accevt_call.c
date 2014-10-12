@@ -41,7 +41,7 @@ asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 	struct event_unit *new_event;
 	new_event = (struct event_unit *)kmalloc(sizeof(struct event_unit),GFP_KERNEL);
 	new_event->event_id = motion_count;
-	new_event->event_count = 1;
+	new_event->event_count = 0;
 	new_event->mBaseline = *tmpAcc;
 	new_event->next = NULL;
 	init_waitqueue_head(&new_event->mWaitQueue);
@@ -77,6 +77,7 @@ asmlinkage long sys_accevt_wait(int event_id)
 	if (p == NULL)
 		return -1;
 	printk("wait_event_interruptible in wait(line 79)\n");
+	p->event_count++;
 	wait_event_interruptible(p->mWaitQueue, condition == event_id);
 	return 0;
 }
@@ -145,13 +146,11 @@ asmlinkage long sys_accevt_destroy(int event_id)
 	if (p->event_count > 1)
 		p->event_count--;
 	else {
-		pre->next = p->next;
+		if (pre == NULL)
+			event_list = NULL;
+		else
+			pre->next = p->next;
 		kfree(p);
-	}
-	struct event_unit * ptr = event_list;
-	while(ptr!= NULL) {
-		printk("In destroy: eventid = %d \n",ptr->event_id);
-		ptr = ptr->next;
 	}
 	return 0;
 }
