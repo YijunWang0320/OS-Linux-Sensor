@@ -94,9 +94,9 @@ asmlinkage long sys_accevt_wait(int event_id)
 	}
 	if (p == NULL)
 		return -1;
-	printk("wait_event_interruptible in wait(line 79)\n");
 	p->event_count++;
 	wait_event_interruptible(p->mWaitQueue, condition == event_id);
+	condition = 0;
 	return 0;
 }
 asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
@@ -121,18 +121,18 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 	}
 	kfifo_put(&acc_kfifo,tmpACC);
 	ret = kfifo_len(&acc_kfifo);
-	if(abso(tmpACC->x - last->x)+abso(tmpACC->y - last->y)+abso(tmpACC->z - last->z) >= NOISE) {
-		total.x += abso(tmpACC->x - last->x);
-		total.y += abso(tmpACC->y - last->y);
-		total.z += abso(tmpACC->z - last->z);
+	if(abso(tmpACC->x - last.x)+abso(tmpACC->y - last.y)+abso(tmpACC->z - last.z) >= NOISE) {
+		total.x += abso(tmpACC->x - last.x);
+		total.y += abso(tmpACC->y - last.y);
+		total.z += abso(tmpACC->z - last.z);
 		totalFrq++;
 	}
 	if (ret == WINDOW)
 	{
 		while(p != NULL) {
 			if (total.x > p->mBaseline.dlt_x && total.y > p->mBaseline.dlt_y && total.z > p->mBaseline.dlt_z && totalFrq > p->mBaseline.frq) {
+				printk("totalFrq: %d,baseline: %d",totalFrq,p->mBaseline.frq);
 				condition = p->event_id;
-				printk("here we come to wake_up_interruptible!\n(line 117)"); //test
 				wake_up_interruptible_all(&p->mWaitQueue);
 				}
 			p = p->next;
@@ -142,7 +142,7 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 		//tmpMotion->dlt_z = total.z;
 		//tmpMotion->frq = totalFrq;
 		kfifo_get(&acc_kfifo,&head);
-		kfifo_peek(&acc_kfifo,peek_first);_
+		kfifo_peek(&acc_kfifo,peek_first);
 		if (abso(peek_first->x - head.x) + abso(peek_first->y - head.y) + abso(peek_first->z - head.z) >= NOISE) {
 			total.x = total.x - abso(peek_first->x - head.x);
 			total.y = total.y - abso(peek_first->y - head.y);
