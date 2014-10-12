@@ -13,18 +13,33 @@ struct event_unit {
 	int event_count; 
 	struct event_unit *next;
 };
+static DEV_A head, total;
+static int totalFrq = 0;
 static struct event_unit *event_list;
 static int motion_count = 0;
 static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,256);
 static int condition = 0;
 static int __init initcode()
 {
+	head.x = 0;
+	head.y = 0;
+	head.z = 0;
+	total.x = 0;
+	total.y = 0;
+	total.z = 0;
 	INIT_KFIFO(acc_kfifo);
 	return 0;
 }
 static void __exit exitcode(void)
 {
 	return;	
+}
+int abso(int x)
+{
+	if(x > 0)
+		return x;
+	else
+		return -x;
 }
 asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 {
@@ -41,7 +56,7 @@ asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 	struct event_unit *new_event;
 	new_event = (struct event_unit *)kmalloc(sizeof(struct event_unit),GFP_KERNEL);
 	new_event->event_id = motion_count;
-	new_event->event_count = 1;
+	new_event->event_count = 0;
 	new_event->mBaseline = *tmpAcc;
 	new_event->next = NULL;
 	init_waitqueue_head(&new_event->mWaitQueue);
@@ -77,20 +92,20 @@ asmlinkage long sys_accevt_wait(int event_id)
 	if (p == NULL)
 		return -1;
 	printk("wait_event_interruptible in wait(line 79)\n");
+	p->event_count++;
 	wait_event_interruptible(p->mWaitQueue, condition == event_id);
 	return 0;
 }
 asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 {
 	int ret;
-	int i = 0;
-	struct dev_acceleration *tmpACC, *latACC;
-	int formerX, formerY, formerZ, laterX, laterY, laterZ, frq;
+	struct dev_acceleration *tmpACC;
 	struct event_unit *p;
+	ACC_M *tmpMotion;
 
 	p = event_list;
 	tmpACC = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
-	latACC = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
+	tmpMotion = (ACC_M *)kmalloc(sizeof(ACC_M),GFP_KERNEL);
 	ret = copy_from_user(tmpACC, acceleration, sizeof(DEV_A));
 	if (ret != 0)
 	{
@@ -98,31 +113,34 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 	}
 	kfifo_put(&acc_kfifo,tmpACC);
 	ret = kfifo_len(&acc_kfifo);
-	printk("ret=kfifo_len(&acc_kfifo), (line 99) ret=%d\n",ret);//test
-	if(ret == WINDOW) {
-		printk("line 101, if(ret==window) success\n");
-		while(p != NULL) {
-			printk("line 102: while(p!=NULL)\n");
-			frq = 0;
-			formerX = 0;
-			formerY = 0;
-			formerZ = 0;
-			for(i = 0 ;i<WINDOW ;i++) {
-				kfifo_get(&acc_kfifo,latACC);
-				laterX = latACC->x;
-				laterY = latACC->y;
-				laterZ = latACC->z;
-				if(laterX - formerX > p->mBaseline.dlt_x && laterY-formerY > p->mBaseline.dlt_y && laterZ - formerZ > p->mBaseline.dlt_z) {
-					frq++;
-				}
-			}
-			if (1==1 || frq >= p->mBaseline.frq) {//test
-				condition = p->event_id;
-				printk("here we come to wake_up_interruptible!\n(line 117)"); //test
-				wake_up_interruptible_all(&p->mWaitQueue);
-			}
-			p=p->next;
+	if(abso(tmpACC->x)+abso(tmpACC->y)+abso(tmpACC->z) >= NOISE) {
+		total.x += abso(tmpACC->x);
+		total.y += abso(tmpACC->y);
+		total.z += abso(tmpACC->z);
+		totalFrq++;
+	}
+	if (ret == WINDOW)
+	{
+		tmpMotion->dlt_x = total.x;
+		tmpMotion->dlt_y = total.y;
+		tmpMotion->dlt_z = total.z;
+		tmpMotion->frq = totalFrq;
+		kfifo_get(&acc_kfifo,&head);
+		if (abso(head.x)+abso(head.y)+abso(head.z) >= NOISE)
+		{
+			total.x = total.x - abso(head.x);
+			total.y = total.y - abso(head.y);
+			total.z = total.z - abso(head.z);
+			totalFrq --;
 		}
+	}
+	while(p != NULL) {
+		if (tmpMotion->dlt_x > p->mBaseline.dlt_x && tmpMotion->dlt_y > p->mBaseline.dlt_y && tmpMotion->dlt_z > p->mBaseline.dlt_z && tmpMotion->frq > p->mBaseline.frq) {
+			condition = p->event_id;
+			printk("here we come to wake_up_interruptible!\n(line 117)"); //test
+			wake_up_interruptible_all(&p->mWaitQueue);
+		}
+		p=p->next;
 	}
 	return ret;
 }
@@ -145,13 +163,11 @@ asmlinkage long sys_accevt_destroy(int event_id)
 	if (p->event_count > 1)
 		p->event_count--;
 	else {
-		pre->next = p->next;
+		if (pre == NULL)
+			event_list = NULL;
+		else
+			pre->next = p->next;
 		kfree(p);
-	}
-	struct event_unit * ptr = event_list;
-	while(ptr!= NULL) {
-		printk("In destroy: eventid = %d \n",ptr->event_id);
-		ptr = ptr->next;
 	}
 	return 0;
 }
