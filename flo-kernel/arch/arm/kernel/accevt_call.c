@@ -162,7 +162,7 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 asmlinkage long sys_accevt_destroy(int event_id)
 {
 	struct event_unit *p, *pre;
-
+	spin_lock(&event_list_lock);
 	p = event_list;
 	pre = NULL;
 	while (p != NULL) {
@@ -175,13 +175,15 @@ asmlinkage long sys_accevt_destroy(int event_id)
 	}
 	if (p == NULL) 
 		return -1;
-	if (p->event_count > 1)
+	if (p->event_count > 1) {
 		p->event_count--;
-	else {
+		spin_unlock(&event_list_lock);
+	} else {
 		if (pre == NULL)
 			event_list = NULL;
 		else
 			pre->next = p->next;
+		spin_unlock(&event_list_lock);
 		kfree(p);
 	}
 	return 0;
