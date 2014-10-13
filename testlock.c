@@ -38,9 +38,12 @@ int main()
 		{
 			syscall(381,eid[i]);
 		} else {
-			syscall(381,eid[3]);
+			syscall(381,eid[2]);
 		}
 		i++;
 	}
+	syscall(382,eid[0]);
+	syscall(382,eid[1]);
+	syscall(382,eid[2]);
 	return 0;
 }
