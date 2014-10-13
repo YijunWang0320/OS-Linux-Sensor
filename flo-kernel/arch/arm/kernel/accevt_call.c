@@ -86,7 +86,7 @@ asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 asmlinkage long sys_accevt_wait(int event_id)
 {
 	struct event_unit *p;
-
+	spin_lock(&event_list_lock);
 	p = event_list;
 	while (p != NULL) {
 		if (p->event_id == event_id)
@@ -94,9 +94,12 @@ asmlinkage long sys_accevt_wait(int event_id)
 		else
 			p = p->next;
 	}
-	if (p == NULL)
+	if (p == NULL) {
+		spin_unlock(&event_list_lock);
 		return -1;
+	}
 	p->event_count++;
+	spin_unlock(&event_list_lock);
 	wait_event_interruptible(p->mWaitQueue, condition == event_id);
 	condition = 0;
 	return 0;
@@ -131,7 +134,8 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 		totalFrq++;
 	}
 	if (ret == WINDOW)
-	{
+	{	
+		spin_lock(&event_list_lock);
 		while(p != NULL) {
 			if (total.x > p->mBaseline.dlt_x && total.y > p->mBaseline.dlt_y && total.z > p->mBaseline.dlt_z && totalFrq > p->mBaseline.frq) {
 				printk("totalFrq: %d,baseline: %d",totalFrq,p->mBaseline.frq);
@@ -140,6 +144,7 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 				}
 			p = p->next;
 		}
+		spin_unlock(&event_list_lock);
 		//tmpMotion->dlt_x = total.x;
 		//tmpMotion->dlt_y = total.y;
 		//tmpMotion->dlt_z = total.z;
@@ -173,8 +178,10 @@ asmlinkage long sys_accevt_destroy(int event_id)
 			p = p->next;
 		}
 	}
-	if (p == NULL) 
+	if (p == NULL) {
+		spin_unlock(&event_list_lock);
 		return -1;
+	}
 	if (p->event_count > 1) {
 		p->event_count--;
 		spin_unlock(&event_list_lock);

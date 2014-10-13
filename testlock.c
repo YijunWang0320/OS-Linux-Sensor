@@ -14,31 +14,33 @@ int main()
 	int pid[3];
 
 	struct acc_motion motion1;
-	motion1.dlt_x = 5;
-	motion1.dlt_y = 5;
-	motion1.dlt_z = 5;
-	motion1.frq = 10;
-	struct acc_motion motion2;
-	motion1.dlt_x = 10;
-	motion1.dlt_y = 7;
-	motion1.dlt_z = 8;
-	motion1.frq = 12;
-	struct acc_motion motion3;
 	motion1.dlt_x = 3;
-	motion1.dlt_y = 3;
-	motion1.dlt_z = 3;
-	motion1.frq = 8;
-	eid[0] = syscall(379, motion1);
-	eid[1] = syscall(379, motion2);
-	eid[2] = syscall(379, motion3);
+	motion1.dlt_y = 1;
+	motion1.dlt_z = 1;
+	motion1.frq = 2;
+	struct acc_motion motion2;
+	motion2.dlt_x = 1;
+	motion2.dlt_y = 3;
+	motion2.dlt_z = 1;
+	motion2.frq = 2;
+	struct acc_motion motion3;
+	motion3.dlt_x = 1;
+	motion3.dlt_y = 1;
+	motion3.dlt_z = 3;
+	motion3.frq = 2;
+	eid[0] = syscall(379, &motion1);
+	eid[1] = syscall(379, &motion2);
+	eid[2] = syscall(379, &motion3);
 
-	while(i < 3) {
+	while(i < 4) {
 		pid[i] = fork();
-		if (pid[i] = 0)
+		if (pid[i] == 0)
 		{
-			syscall(381,eid[i]);
+			syscall(380,eid[i]);
+			printf("shake detect: i = %d, eidi = %d\n",i,eid[i]);
 		} else {
-			syscall(381,eid[2]);
+			syscall(380,eid[2]);
+			printf("shake detect: i = %d, eidi = %d\n",i,eid[i]);
 		}
 		i++;
 	}
