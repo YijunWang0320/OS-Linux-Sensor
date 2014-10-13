@@ -102,6 +102,9 @@ asmlinkage long sys_accevt_wait(int event_id)
 	spin_unlock(&event_list_lock);
 	wait_event_interruptible(p->mWaitQueue, condition == event_id);
 	condition = 0;
+	spin_lock(&event_list_lock);
+	p->event_count--;
+	spin_unlock(&event_list_lock);
 	return 0;
 }
 asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
@@ -182,9 +185,9 @@ asmlinkage long sys_accevt_destroy(int event_id)
 		spin_unlock(&event_list_lock);
 		return -1;
 	}
-	if (p->event_count > 1) {
-		p->event_count--;
-		spin_unlock(&event_list_lock);
+	if (p->event_count >= 1) {
+		//p->event_count--;
+		spin_unlock(&event_list_lock); 
 	} else {
 		if (pre == NULL)
 			event_list = NULL;

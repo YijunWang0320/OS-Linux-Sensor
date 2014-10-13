@@ -1,5 +1,5 @@
 #define TIME_INTERVAL 200
-#define NOISE 10
+#define NOISE 0
 #define WINDOW 20
 struct acc_motion {
 	unsigned int dlt_x; /* +/- around X-axis */
