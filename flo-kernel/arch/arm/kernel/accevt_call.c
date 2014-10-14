@@ -4,22 +4,23 @@
 #include<linux/kfifo.h>
 #include<linux/wait.h>
 #include<linux/spinlock.h>
-
+# include <error.h>
 #define ACC_M struct acc_motion
 #define DEV_A struct dev_acceleration
+#define E_U struct event_unit
 struct event_unit {
 	ACC_M mBaseline;
 	wait_queue_head_t mWaitQueue;
 	int event_id;
-	int event_count; 
+	int event_count;
 	struct event_unit *next;
 };
-static DEV_A head, total, last;//only signal
-static int totalFrq = 0;//only signal
-static struct event_unit *event_list;// lock 1
-static int motion_count = 0;//lock 2
-static DECLARE_KFIFO(acc_kfifo,struct dev_acceleration,256);
-static int condition = 0;
+static DEV_A head, total, last;/*only signal */
+static int totalFrq;/*only signal*/
+static struct event_unit *event_list;/* lock 1*/
+static int motion_count;/*lock 2*/
+static DECLARE_KFIFO(acc_kfifo, struct dev_acceleration, 256);
+static int condition;
 static spinlock_t motion_count_lock;
 static spinlock_t event_list_lock;
 static int __init initcode()
@@ -40,11 +41,11 @@ static int __init initcode()
 }
 static void __exit exitcode(void)
 {
-	return;	
+	return;
 }
 int abso(int x)
 {
-	if(x > 0)
+	if (x > 0)
 		return x;
 	else
 		return -x;
@@ -55,14 +56,14 @@ asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 	int ret = 0;
 	int reteid;
 
-	if(acceleration == NULL)
-		return -1;
-	tmpAcc = (ACC_M *)kmalloc(sizeof(ACC_M), GFP_KERNEL);
+	if (acceleration == NULL)
+		return -EINVAL;
+	tmpAcc = kmalloc(sizeof(ACC_M), GFP_KERNEL);
 	ret = copy_from_user(tmpAcc, acceleration, sizeof(ACC_M));
 	if (ret != 0)
-		return -1;
+		return -EINVAL;
 	struct event_unit *new_event;
-	new_event = (struct event_unit *)kmalloc(sizeof(struct event_unit),GFP_KERNEL);
+	new_event = kmalloc(sizeof(E_U), GFP_KERNEL);
 	new_event->event_count = 0;
 	new_event->mBaseline = *tmpAcc;
 	new_event->next = NULL;
@@ -73,11 +74,11 @@ asmlinkage long sys_accevt_create(struct acc_motion __user *acceleration)
 	spin_unlock(&motion_count_lock);
 	init_waitqueue_head(&new_event->mWaitQueue);
 	spin_lock(&event_list_lock);
-	if (event_list==NULL) {
-		event_list=new_event;
+	if (event_list == NULL) {
+		event_list = new_event;
 	} else {
 		new_event->next = event_list;
-		event_list = new_event;	
+		event_list = new_event;
 	}
 	spin_unlock(&event_list_lock);
 	kfree(tmpAcc);
@@ -96,7 +97,7 @@ asmlinkage long sys_accevt_wait(int event_id)
 	}
 	if (p == NULL) {
 		spin_unlock(&event_list_lock);
-		return -1;
+		return -EINVAL;
 	}
 	p->event_count++;
 	spin_unlock(&event_list_lock);
@@ -117,53 +118,60 @@ asmlinkage long sys_accevt_signal(struct dev_acceleration __user *acceleration)
 	spin_lock(&event_list_lock);
 	p = event_list;
 	spin_unlock(&event_list_lock);
-	tmpACC = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
-	peek_first = (DEV_A *)kmalloc(sizeof(DEV_A),GFP_KERNEL);
-	//tmpMotion = (ACC_M *)kmalloc(sizeof(ACC_M),GFP_KERNEL);
-	//before this is just malloc, we need to free this
-	//tmplast is the one that before this, static last make it possible
+	tmpACC = kmalloc(sizeof(DEV_A), GFP_KERNEL);
+	peek_first = kmalloc(sizeof(DEV_A), GFP_KERNEL);
+	/*before this is just malloc, we need to free this
+	tmplast is the one that before this, static last make it possible */
 	ret = copy_from_user(tmpACC, acceleration, sizeof(DEV_A));
 
 	if (ret != 0)
-	{
-		return -1;
-	}
-	kfifo_put(&acc_kfifo,tmpACC);
+		return -EINVAL;
+
+	kfifo_put(&acc_kfifo, tmpACC);
 	ret = kfifo_len(&acc_kfifo);
-	if(abso(tmpACC->x - last.x)+abso(tmpACC->y - last.y)+abso(tmpACC->z - last.z) >= NOISE) {
+	int delte_x = tmpACC->x - last.x;
+	int delte_y = tmpACC->y - last.y;
+	int delte_z = tmpACC->z - last.z;
+	if (abso(delte_x) + abso(delte_y) + abso(delte_z) >= NOISE) {
 		total.x += abso(tmpACC->x - last.x);
 		total.y += abso(tmpACC->y - last.y);
 		total.z += abso(tmpACC->z - last.z);
 		totalFrq++;
 	}
-	if (ret == WINDOW)
-	{	
+	if (ret == WINDOW) {
 		spin_lock(&event_list_lock);
-		while(p != NULL) {
-			if (total.x > p->mBaseline.dlt_x && total.y > p->mBaseline.dlt_y && total.z > p->mBaseline.dlt_z && totalFrq > p->mBaseline.frq) {
-				printk("totalFrq: %d,baseline: %d",totalFrq,p->mBaseline.frq);
+		while (p != NULL) {
+			int tmpX = total.x - p->mBaseline.dlt_x;
+			int tmpY = total.y - p->mBaseline.dlt_y;
+			int tmpZ = total.z - p->mBaseline.dlt_z;
+			int tmpFrq = totalFrq - p->mBaseline.frq;
+			if (tmpX > 0 && tmpY > 0 && tmpZ > 0 && tmpFrq > 0) {
 				condition = p->event_id;
 				wake_up_interruptible_all(&p->mWaitQueue);
 				}
 			p = p->next;
 		}
 		spin_unlock(&event_list_lock);
-		//tmpMotion->dlt_x = total.x;
+		/*tmpMotion->dlt_x = total.x;
 		//tmpMotion->dlt_y = total.y;
 		//tmpMotion->dlt_z = total.z;
-		//tmpMotion->frq = totalFrq;
-		kfifo_get(&acc_kfifo,&head);
-		kfifo_peek(&acc_kfifo,peek_first);
-		if (abso(peek_first->x - head.x) + abso(peek_first->y - head.y) + abso(peek_first->z - head.z) >= NOISE) {
+		//tmpMotion->frq = totalFrq;*/
+		kfifo_get(&acc_kfifo, &head);
+		kfifo_peek(&acc_kfifo, peek_first);
+
+		int result_x = peek_first->x - head.x;
+		int result_y = peek_first->y - head.y;
+		int result_z = peek_first->z - head.z;
+		if (abso(result_x) + abso(result_y) + abso(result_z) >= NOISE) {
 			total.x = total.x - abso(peek_first->x - head.x);
 			total.y = total.y - abso(peek_first->y - head.y);
 			total.z = total.z - abso(peek_first->z - head.z);
-			totalFrq --;
+			totalFrq--;
 		}
 	}
 	memcpy(&last, tmpACC, sizeof(DEV_A));
 	kfree(tmpACC);
-	//kfree(tmpMotion);
+	/*kfree(tmpMotion);*/
 	kfree(peek_first);
 	return ret;
 }
@@ -183,11 +191,11 @@ asmlinkage long sys_accevt_destroy(int event_id)
 	}
 	if (p == NULL) {
 		spin_unlock(&event_list_lock);
-		return -1;
+		return -EINVAL;
 	}
 	if (p->event_count >= 1) {
-		//p->event_count--;
-		spin_unlock(&event_list_lock); 
+		/*p->event_count--;*/
+		spin_unlock(&event_list_lock);
 	} else {
 		if (pre == NULL)
 			event_list = NULL;
