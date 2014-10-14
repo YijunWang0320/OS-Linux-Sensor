@@ -30,14 +30,16 @@ int main()
 	eid[1] = syscall(379, &motion2);
 	eid[2] = syscall(379, &motion3);
 	int i;
+	int j;
 	pid_t pid;
-	for (i=1;i<=3;i++) {
+	for (i=1;i<=4;i++) {
 		pid = fork();
 		if (pid == 0) {
 			printf("I am a child: %d, waiting for: %d\n",i,eid[i%3]);
-			syscall(380,eid[i%3]);
-			printf("Motion detected, eid = %d\n",eid[i%3]);
-			return 0;
+			j = syscall(380,eid[i%3]);
+			if(j!=-1)
+				printf("Motion detected, eid = %d\n",eid[i%3]);
+			//return 0;
 		}
 	}
 	while(wait(0)>0);
