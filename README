@@ -1,1 +1,8 @@
-Readme test by Dave 2
+Team 10 cite:
+	The resource does not include textbook and Linux free code
+1.	About kfifo:
+	(1) https://github.com/jeffbonhag/mystul-3.4.10/tree/master/samples/kfifo
+	(2) https://github.com/kushdeck/jewel-3.4/tree/master/samples/kfifo
+	(3) http://blog.csdn.net/linyt/article/details/
+2.	(1) http://www.crashcourse.ca/wiki/index.php/Wait_queues
+	(2) http://tuxthink.blogspot.com/2011/04/wait-queues.html
