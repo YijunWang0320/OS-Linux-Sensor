@@ -36,15 +36,22 @@ int main()
 		pid = fork();
 		if (pid == 0) {
 			printf("I am a child: %d, waiting for: %d\n",i,eid[i%3]);
+			while (1) {
 			j = syscall(380,eid[i%3]);
-			if(j!=-1)
-				printf("Motion detected, eid = %d\n",eid[i%3]);
-			//return 0;
+			if(i%3 == 0)
+				printf("X shake, eid = %d\n", eid[i%3]);
+			else if(i%3 == 1)
+				printf("Z shake, eid = %d\n", eid[i%3]);
+			else
+				printf("Y shake, eid = %d\n", eid[i%3]);
+			}
+			return 0;
 		}
 	}
 	while(wait(0)>0);
 	syscall(382,eid[0]);
 	syscall(382,eid[1]);
 	syscall(382,eid[2]);
+	printf("destroyed all 3 motions!\n");
 	return 0;
 }

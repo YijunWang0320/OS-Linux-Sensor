@@ -4,7 +4,6 @@
 #include<linux/kfifo.h>
 #include<linux/wait.h>
 #include<linux/spinlock.h>
-# include <error.h>
 #define ACC_M struct acc_motion
 #define DEV_A struct dev_acceleration
 #define E_U struct event_unit
@@ -193,17 +192,17 @@ asmlinkage long sys_accevt_destroy(int event_id)
 		spin_unlock(&event_list_lock);
 		return -EINVAL;
 	}
-	if (p->event_count >= 1) {
-		/*p->event_count--;*/
-		spin_unlock(&event_list_lock);
-	} else {
-		if (pre == NULL)
-			event_list = NULL;
-		else
-			pre->next = p->next;
-		spin_unlock(&event_list_lock);
-		kfree(p);
+	
+	if (pre == NULL)
+		event_list = NULL;
+	else
+		pre->next = p->next;
+	spin_unlock(&event_list_lock);
+	while (p->event_count > 0) {
+		wake_up_interruptible_all(&p->mWaitQueue);
+		condition = p->event_id;
 	}
+	kfree(p);
 	return 0;
 }
 module_init(initcode);
